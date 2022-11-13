@@ -1,3 +1,3 @@
 #! /bin/bash
 
-docker-compose -f ./../de_cluster.yaml down
+docker-compose -f ./../docker/de_cluster.yaml down

@@ -20,9 +20,9 @@ x-airflow-common:
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
   volumes:
-    - ./airflow/dags:/opt/airflow/dags
-    - ./airflow/logs:/opt/airflow/logs
-    - ./airflow/plugins:/opt/airflow/plugins
+    - ./../meta/airflow/dags:/opt/airflow/dags
+    - ./../meta/airflow/logs:/opt/airflow/logs
+    - ./../meta/airflow/plugins:/opt/airflow/plugins
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -262,7 +262,7 @@ services:
     networks:
       - de-network
     volumes:
-      - /home/projects/de_cluster/service:/srv/service
+      - ./../service:/srv/service
     command: tail -F anything
 
   minio: 
@@ -271,7 +271,7 @@ services:
       - 9000:9000
       - 9090:9090
     volumes:
-      - ./minio/minio_data:/data
+      - ./../meta/minio/minio_data:/data
     environment:
       - "MINIO_ROOT_USER=admin"
       - "MINIO_ROOT_PASSWORD=admin123"
