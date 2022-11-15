@@ -1,0 +1,13 @@
+FROM apache/airflow:2.4.2
+
+USER root
+
+RUN apt-get update
+RUN apt-get install wget iputils-ping -y
+
+RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc \
+    && chmod +x $HOME/minio-binaries/mc && export PATH=$PATH:$HOME/minio-binaries/
+
+ENV PATH="$PATH:$HOME/minio-binaries/"
+
+# docker build -t base_airflow -f Dockerfile_airflow .

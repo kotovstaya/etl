@@ -4,7 +4,8 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.4.2}
+  image: base_airflow
+  #${AIRFLOW_IMAGE_NAME:-apache/airflow:2.4.2}
   # build: .
   environment:
     &airflow-common-env
@@ -23,6 +24,7 @@ x-airflow-common:
     - ./../meta/airflow/dags:/opt/airflow/dags
     - ./../meta/airflow/logs:/opt/airflow/logs
     - ./../meta/airflow/plugins:/opt/airflow/plugins
+    - ./../../scheduler_ml:/srv/scheduler_ml
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -256,14 +258,6 @@ services:
       - "SPARK_MASTER=spark://spark-master:7077"
       - "SPARK_WORKER_WEBUI_PORT=8090"
     command: "/start-worker.sh"
-
-  web:
-    image: base-research-image
-    networks:
-      - de-network
-    volumes:
-      - ./../service:/srv/service
-    command: tail -F anything
 
   minio: 
     image: minio/minio
