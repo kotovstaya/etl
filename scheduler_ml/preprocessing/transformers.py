@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import typing as tp
 
 import numpy as np
@@ -165,11 +166,11 @@ class HistDataTransformer(BaseHistDataTransformer):
 
         try:
             for ix, df in enumerate(reader_generator):
-                print(df.head())
+                logging.error(df.head())
                 shops_id, objects, load_errors = self._chunk_transform(
                     df, shops_id, objects, load_errors, dtt, metainfo)
-                if ix > 5:
-                    break
+
+                logging.error(objects[:5])
 
         except (FileNotFoundError, PermissionError) as e:
             load_errors.add(f'{e.__class__.__name__}: {str(e)}: {filename}')

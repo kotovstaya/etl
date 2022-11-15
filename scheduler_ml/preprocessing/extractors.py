@@ -1,6 +1,8 @@
+import logging
+
 import pandas as pd
-from faker.providers.date_time import Provider as DateTimeProvider
-from wfm_ml.preprocessing import readers, transformers
+from dateutil import parser
+from scheduler_ml.preprocessing import readers, transformers
 
 
 class HistDataExtractor:
@@ -17,10 +19,8 @@ class HistDataExtractor:
             self.reader_params['csv_params']["index_col"] = False
             self.reader_params["csv_params"]["names"] = self.transformer_params["columns"]
 
-        self.reader = readers.FTP2PandasCSVReader(**self.reader_params)
+        self.reader = readers.Minio2PandasCSVReader(**self.reader_params)
         self.transformer = transformers.HistDataTransformer(**self.transformer_params)
-
-        self._dt_provider = DateTimeProvider(generator=None)
 
         self._init_cached_data()
 
@@ -40,8 +40,9 @@ class HistDataExtractor:
         return self.filename_fmt.format(**kwargs)
 
     def get_dates_range(self):
-        dt_from = self._dt_provider._parse_date(self.dt_from)
-        dt_to = self._dt_provider._parse_date(self.dt_to)
+        print(f"dt_from: {self.dt_from}")
+        dt_from = parser.parse(self.dt_from)
+        dt_to = parser.parse(self.dt_to)
         return list(pd.date_range(dt_from, dt_to).date)
 
     def get_dt_and_filename_pairs(self):
@@ -60,7 +61,7 @@ class HistDataExtractor:
         errors = set()
         dt_and_filename_pairs = self.get_dt_and_filename_pairs()
         for dtt, filename in dt_and_filename_pairs:
-            print(filename, dtt)
+            logging.error(f"{filename}, {dtt}")
             reader_generator = self.reader.read(filename)
             load_errors = self.transformer.transform(
                 reader_generator, dtt, filename)
@@ -69,6 +70,7 @@ class HistDataExtractor:
         res = {
             'errors': list(errors),
         }
+        logging.error(res)
         return res
 
 
@@ -102,8 +104,8 @@ if __name__ == "__main__":
             ],
             "dt_or_dttm_format": '%d.%m.%Y %H:%M:%S',
         },
-        dt_from=-1,
-        dt_to=-1,
+        dt_from='2022-11-14',
+        dt_to='2022-11-14',
         filename_fmt='{data_type}_{year:04d}{month:02d}{day:02d}.csv',
     )
 
