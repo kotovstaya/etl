@@ -1,0 +1,6 @@
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+TZ=Europe/Moscow
+LANG=C.UTF-8
+manage_py=/webapp/manage.py
+
+0 0 * * * logrotate /etc/logrotate.conf

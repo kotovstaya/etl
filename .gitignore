@@ -10,7 +10,7 @@ src/conf/qosconfig_local.py
 static/
 media/
 meta/airflow/*
-meta/airflow/dags/*
+meta/minio/*
 
 src/templates/test.html
 src/db/works/printer/test.xlsx
