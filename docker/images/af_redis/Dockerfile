@@ -114,7 +114,10 @@ VOLUME /data
 WORKDIR /data
 
 COPY ./images/af_redis/docker-entrypoint.sh /usr/local/bin/
-ENTRYPOINT ["docker-entrypoint.sh"]
+# COPY ./images/af_redis/redis.conf /redis.conf
+# ENTRYPOINT ["docker-entrypoint.sh"] 
+# , "/redis.conf"
 
-EXPOSE 6380
-CMD ["redis-server", "--port","6380"]
+# EXPOSE 6380
+# ENTRYPOINT ["redis-server", '--port', '6380']
+# , "--port","6380"

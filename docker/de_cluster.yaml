@@ -10,6 +10,7 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__WEBSERVER__WEB_SERVER_PORT: 8082
+    AIRFLOW_REDIS_PORT: 6380
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@af-postgres/airflow
     # For backward compatibility, with Airflow <2.3
@@ -22,9 +23,9 @@ x-airflow-common:
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
   volumes:
-    - ./../meta/airflow/dags:/opt/airflow/dags
-    - ./../meta/airflow/logs:/opt/airflow/logs
-    - ./../meta/airflow/plugins:/opt/airflow/plugins
+    - ${ETL_MOUNT_FOLDER}/airflow/dags:/opt/airflow/dags
+    - ${ETL_MOUNT_FOLDER}/airflow/logs:/opt/airflow/logs
+    - ${ETL_MOUNT_FOLDER}/airflow/plugins:/opt/airflow/plugins
     - ./../../scheduler_ml:/srv/scheduler_ml
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -42,11 +43,11 @@ services:
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
     volumes:
-      - postgres-db-volume:/var/lib/postgresql/data
+      - postgres-db-volume:/var/data2/asavinkov/mounts/meta/af_postgres
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 5s
-      retries: 5
+      retries: 1
     restart: always
     networks:
       - de-network
@@ -55,87 +56,18 @@ services:
     build:
       context: ./
       dockerfile: ./images/af_redis/Dockerfile
-    expose:
-      - 6380
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 30s
-      retries: 50
-    restart: always
-    networks:
-      - de-network
-
-  af-webserver:
-    <<: *airflow-common
-    command: webserver
+    command: redis-server --port 6380
+    hostname: af-redis
+    # expose:
+      # - 6380
     ports:
-      - 8082:8082
+      - "6380:6380"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8082/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+      test: ["CMD", "redis-cli", "-p", "6380", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 1
     restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
-    networks:
-      - de-network
-
-  af-scheduler:
-    <<: *airflow-common
-    command: scheduler
-    healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
-    networks:
-      - de-network
-
-  af-worker:
-    <<: *airflow-common
-    command: celery worker
-    healthcheck:
-      test:
-        - "CMD-SHELL"
-        - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    environment:
-      <<: *airflow-common-env
-      # Required to handle warm shutdown of the celery workers properly
-      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
-      DUMB_INIT_SETSID: "0"
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
-    networks:
-      - de-network
-
-  af-triggerer:
-    <<: *airflow-common
-    command: triggerer
-    healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
     networks:
       - de-network
 
@@ -215,7 +147,80 @@ services:
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
     volumes:
-      - ./airflow:/sources
+      - ${ETL_MOUNT_FOLDER}/airflow:/sources
+    networks:
+      - de-network
+
+  af-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - 8082:8082
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      af-init:
+        condition: service_completed_successfully
+    networks:
+      - de-network
+
+  af-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      af-init:
+        condition: service_completed_successfully
+    networks:
+      - de-network
+
+  af-worker:
+    <<: *airflow-common
+    command: celery worker
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    environment:
+      <<: *airflow-common-env
+      # Required to handle warm shutdown of the celery workers properly
+      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
+      DUMB_INIT_SETSID: "0"
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      af-init:
+        condition: service_completed_successfully
+    networks:
+      - de-network
+
+  af-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      af-init:
+        condition: service_completed_successfully
     networks:
       - de-network
 
@@ -268,7 +273,7 @@ services:
       - 9001:9001
       - 9091:9091
     volumes:
-      - ./../meta/minio/minio_data:/data
+      - ${ETL_MOUNT_FOLDER}/minio/:/data
     environment:
       - "MINIO_ROOT_USER=admin"
       - "MINIO_ROOT_PASSWORD=admin123"
@@ -276,126 +281,126 @@ services:
     networks:
       - de-network
 
-####################################
+# ###################################
 
-  # redis:
-  #   image: redis:6.2.1
-  #   restart: unless-stopped
-  #   environment:
-  #     - ALLOW_EMPTY_PASSWORD=yes
-  #   volumes:
-  #     - ${MOUNT_FOLDER}/redis_data:/data
-  #   ports:
-  #     - "6379:6379"
-  #   networks:
-  #     - de-network
+#   redis:
+#     image: redis:6.2.1
+#     restart: unless-stopped
+#     environment:
+#       - ALLOW_EMPTY_PASSWORD=yes
+#     volumes:
+#       - ${MOUNT_FOLDER}/redis_data:/data
+#     ports:
+#       - "6379:6379"
+#     networks:
+#       - de-network
 
-  # converter:
-  #   image: eugenmayer/kontextwork-converter:production
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ${MOUNT_FOLDER}/jod_converter_conf:/etc/app
-  #   ports:
-  #     - "8080:8080"
-  #   networks:
-  #     - de-network
+#   converter:
+#     image: eugenmayer/kontextwork-converter:production
+#     restart: unless-stopped
+#     volumes:
+#       - ${MOUNT_FOLDER}/jod_converter_conf:/etc/app
+#     ports:
+#       - "8080:8080"
+#     networks:
+#       - de-network
 
-  # postgres:
-  #   build:
-  #     context: .
-  #     dockerfile: ./images/postgres/Dockerfile
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ${MOUNT_FOLDER}/postgres:/var/lib/postgresql/data
-  #     - ${MOUNT_FOLDER}/postgres_backups:/backups
-  #   environment:
-  #     POSTGRES_DB: qos
-  #     POSTGRES_USER: qos
-  #     POSTGRES_PASSWORD: qos
-  #     POSTGRES_HOST: localhost
-  #     POSTGRES_PORT: 5432
-  #   ports:
-  #     - "5432:5432"
-  #   networks:
-  #     - de-network
+#   postgres:
+#     build:
+#       context: .
+#       dockerfile: ./images/postgres/Dockerfile
+#     restart: unless-stopped
+#     volumes:
+#       - ${MOUNT_FOLDER}/postgres:/var/lib/postgresql/data
+#       - ${MOUNT_FOLDER}/postgres_backups:/backups
+#     environment:
+#       POSTGRES_DB: qos
+#       POSTGRES_USER: qos
+#       POSTGRES_PASSWORD: qos
+#       POSTGRES_HOST: localhost
+#       POSTGRES_PORT: 5432
+#     ports:
+#       - "5432:5432"
+#     networks:
+#       - de-network
       
-  # web:
-  #   build:
-  #     context: ./
-  #     dockerfile: ./images/web/Dockerfile
-  #   # restart: unless-stopped
-  #   command: uwsgi --http :9090 --wsgi-file wsgi.py
-  #   volumes:
-  #     - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
-  #     - ${MOUNT_FOLDER}/uwsgi:/uwsgi
-  #     - ${MOUNT_FOLDER}/logs:/webapp/logs
-  #     - ${MOUNT_FOLDER}/media:/webapp/media
-  #     - ${MOUNT_FOLDER}/static:/webapp/static
-  #     - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
-  #     - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
-  #     - ./../../QoS_backend/:/webapp/
-  #   environment:
-  #     REDIS_HOST: redis
-  #     HOST: http://localhost:9090
-  #     DB_NAME: qos
-  #     DB_USER: qos
-  #     DB_PASSWORD: qos
-  #     DB_HOST: postgres
-  #     JOD_CONVERTER_URL: http://converter:8080
-  #     UWSGI_WORKERS: 1
-  #     UWSGI_THREADS: 1
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   ports:
-  #     - "9090:9090"
-  #   networks:
-  #     - de-network
+#   web:
+#     build:
+#       context: ./
+#       dockerfile: ./images/web/Dockerfile
+#     # restart: unless-stopped
+#     command: uwsgi --http :9090 --wsgi-file wsgi.py
+#     volumes:
+#       - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
+#       - ${MOUNT_FOLDER}/uwsgi:/uwsgi
+#       - ${MOUNT_FOLDER}/logs:/webapp/logs
+#       - ${MOUNT_FOLDER}/media:/webapp/media
+#       - ${MOUNT_FOLDER}/static:/webapp/static
+#       - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
+#       - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
+#       - ./../../QoS_backend/:/webapp/
+#     environment:
+#       REDIS_HOST: redis
+#       HOST: http://localhost:9090
+#       DB_NAME: qos
+#       DB_USER: qos
+#       DB_PASSWORD: qos
+#       DB_HOST: postgres
+#       JOD_CONVERTER_URL: http://converter:8080
+#       UWSGI_WORKERS: 1
+#       UWSGI_THREADS: 1
+#     depends_on:
+#       - postgres
+#       - redis
+#     ports:
+#       - "9090:9090"
+#     networks:
+#       - de-network
 
-  # celery:
-  #   build:
-  #     context: ./
-  #     dockerfile: ./images/web/Dockerfile
-  #   command: celery -A src.celery worker -n main --max-tasks-per-child=100 --max-memory-per-child=25000 --loglevel=INFO --logfile=/webapp/logs/celery_main.log
-  #   volumes:
-  #     - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
-  #     - ${MOUNT_FOLDER}/uwsgi:/uwsgi
-  #     - ${MOUNT_FOLDER}/logs:/webapp/logs
-  #     - ${MOUNT_FOLDER}/media:/webapp/media
-  #     - ${MOUNT_FOLDER}/static:/webapp/static
-  #     - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
-  #     - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
-  #     - ./../../QoS_backend/:/webapp/
-  #   environment:
-  #     REDIS_HOST: redis
-  #     HOST: http://web:80
-  #     DB_NAME: qos
-  #     DB_USER: qos
-  #     DB_PASSWORD: qos
-  #     DB_HOST: postgres
-  #     JOD_CONVERTER_URL: http://converter:8080
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   networks:
-  #     - de-network
+#   celery:
+#     build:
+#       context: ./
+#       dockerfile: ./images/web/Dockerfile
+#     command: celery -A src.celery worker -n main --max-tasks-per-child=100 --max-memory-per-child=25000 --loglevel=INFO --logfile=/webapp/logs/celery_main.log
+#     volumes:
+#       - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
+#       - ${MOUNT_FOLDER}/uwsgi:/uwsgi
+#       - ${MOUNT_FOLDER}/logs:/webapp/logs
+#       - ${MOUNT_FOLDER}/media:/webapp/media
+#       - ${MOUNT_FOLDER}/static:/webapp/static
+#       - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
+#       - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
+#       - ./../../QoS_backend/:/webapp/
+#     environment:
+#       REDIS_HOST: redis
+#       HOST: http://web:80
+#       DB_NAME: qos
+#       DB_USER: qos
+#       DB_PASSWORD: qos
+#       DB_HOST: postgres
+#       JOD_CONVERTER_URL: http://converter:8080
+#     depends_on:
+#       - postgres
+#       - redis
+#     networks:
+#       - de-network
 
-  # flower:
-  #   build:
-  #     context: ./
-  #     dockerfile: ./images/web/Dockerfile
-  #   command: celery -A src.celery flower --conf=/webapp/flowerconfig.py --port=5555
-  #   volumes:
-  #     - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
-  #     - ${MOUNT_FOLDER}/uwsgi:/uwsgi
-  #     - ${MOUNT_FOLDER}/logs:/webapp/logs
-  #     - ./../../QoS_backend/:/webapp/
-  #   environment:
-  #     REDIS_HOST: redis
-  #   ports:
-  #     - "5555:5555"
-  #   networks:
-  #     - de-network
+#   flower:
+#     build:
+#       context: ./
+#       dockerfile: ./images/web/Dockerfile
+#     command: celery -A src.celery flower --conf=/webapp/flowerconfig.py --port=5555
+#     volumes:
+#       - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
+#       - ${MOUNT_FOLDER}/uwsgi:/uwsgi
+#       - ${MOUNT_FOLDER}/logs:/webapp/logs
+#       - ./../../QoS_backend/:/webapp/
+#     environment:
+#       REDIS_HOST: redis
+#     ports:
+#       - "5555:5555"
+#     networks:
+#       - de-network
 
 
 networks:

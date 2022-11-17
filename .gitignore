@@ -9,7 +9,6 @@ src/conf/djconfig_local.py
 src/conf/qosconfig_local.py
 static/
 media/
-meta/airflow/*
 meta/minio/*
 
 src/templates/test.html
