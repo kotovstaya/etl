@@ -1,0 +1,49 @@
+FROM yankovg/python3.8.2-ubuntu18.04
+
+RUN apt-get -qq update && apt-get -qq -y install \
+    vim zsh dash csh tcsh posh ksh fish git libbz2-dev \
+    patch libmagic1 openjdk-8-jdk \
+    curl gnupg apt-transport-https \
+    &&  rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
+
+ENV PYTHON_VERSION 3.8
+
+# conda and test dependencies
+RUN curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
+    && bash /tmp/miniconda.sh -bfp /opt/conda/ \
+    && rm -rf /tmp/miniconda.sh \
+    && /opt/conda/bin/conda install -y -c conda-canary -c defaults -c conda-forge \
+    conda conda-package-handling \
+    python=$PYTHON_VERSION pycosat requests ruamel_yaml cytoolz \
+    anaconda-client nbformat \
+    pytest pytest-cov pytest-timeout mock responses pexpect xonsh \
+    flake8 \
+    && /opt/conda/bin/conda clean --all --yes
+
+RUN /opt/conda/bin/pip install codecov radon \
+    && rm -rf ~root/.cache/pip
+
+
+# conda-build and test dependencies
+RUN /opt/conda/bin/conda install -y -c defaults -c conda-forge \
+    conda-build patch git \
+    perl pytest-xdist pytest-catchlog pytest-mock \
+    anaconda-client \
+    filelock jinja2 conda-verify pkginfo \
+    glob2 beautifulsoup4 chardet pycrypto \
+    && /opt/conda/bin/conda clean --all --yes
+
+ENV PATH="/opt/conda/bin:$PATH"
+
+
+ARG PYTHON_VERSION=3.8
+
+RUN apt-get install wget tar bash \
+    && wget https://archive.apache.org/dist/spark/spark-3.3.1/spark-3.3.1-bin-hadoop3.tgz \
+    && tar -xvf spark-3.3.1-bin-hadoop3.tgz \
+    && mv spark-3.3.1-bin-hadoop3 /spark
+
+COPY ./images/pyspark/start-master.sh /start-master.sh
+COPY ./images/pyspark/start-worker.sh /start-worker.sh
+
+#docker build -t pyspark-image -f pyspark-image-df .
