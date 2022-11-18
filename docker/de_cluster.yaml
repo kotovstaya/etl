@@ -38,297 +38,297 @@ x-airflow-common:
       condition: service_healthy
 
 services:
-  af-postgres:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
-    volumes:
-      - postgres-db-volume:/var/data2/asavinkov/mounts/meta/af_postgres
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
-      interval: 5s
-      retries: 1
-    restart: always
-    networks:
-      - de-network
+#   af-postgres:
+#     image: postgres:13
+#     environment:
+#       POSTGRES_USER: airflow
+#       POSTGRES_PASSWORD: airflow
+#       POSTGRES_DB: airflow
+#     volumes:
+#       - postgres-db-volume:/var/data2/asavinkov/mounts/meta/af_postgres
+#     healthcheck:
+#       test: ["CMD", "pg_isready", "-U", "airflow"]
+#       interval: 5s
+#       retries: 1
+#     restart: always
+#     networks:
+#       - de-network
 
-  af-redis:
-    build:
-      context: ./
-      dockerfile: ./images/af_redis/Dockerfile
-    command: redis-server --port 6380
-    hostname: af-redis
-    # expose:
-      # - 6380
-    ports:
-      - "6380:6380"
-    healthcheck:
-      test: ["CMD", "redis-cli", "-p", "6380", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 1
-    restart: always
-    networks:
-      - de-network
+#   af-redis:
+#     build:
+#       context: ./
+#       dockerfile: ./images/af_redis/Dockerfile
+#     command: redis-server --port 6380
+#     hostname: af-redis
+#     # expose:
+#       # - 6380
+#     ports:
+#       - "6380:6380"
+#     healthcheck:
+#       test: ["CMD", "redis-cli", "-p", "6380", "ping"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 1
+#     restart: always
+#     networks:
+#       - de-network
 
-  af-init:
-    <<: *airflow-common
-    entrypoint: /bin/bash
-    # yamllint disable rule:line-length
-    command:
-      - -c
-      - |
-        function ver() {
-          printf "%04d%04d%04d%04d" $${1//./ }
-        }
-        airflow_version=$$(AIRFLOW__LOGGING__LOGGING_LEVEL=INFO && gosu airflow airflow version)
-        airflow_version_comparable=$$(ver $${airflow_version})
-        min_airflow_version=2.2.0
-        min_airflow_version_comparable=$$(ver $${min_airflow_version})
-        if (( airflow_version_comparable < min_airflow_version_comparable )); then
-          echo
-          echo -e "\033[1;31mERROR!!!: Too old Airflow version $${airflow_version}!\e[0m"
-          echo "The minimum Airflow version supported: $${min_airflow_version}. Only use this or higher!"
-          echo
-          exit 1
-        fi
-        if [[ -z "${AIRFLOW_UID}" ]]; then
-          echo
-          echo -e "\033[1;33mWARNING!!!: AIRFLOW_UID not set!\e[0m"
-          echo "If you are on Linux, you SHOULD follow the instructions below to set "
-          echo "AIRFLOW_UID environment variable, otherwise files will be owned by root."
-          echo "For other operating systems you can get rid of the warning with manually created .env file:"
-          echo "    See: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#setting-the-right-airflow-user"
-          echo
-        fi
-        one_meg=1048576
-        mem_available=$$(($$(getconf _PHYS_PAGES) * $$(getconf PAGE_SIZE) / one_meg))
-        cpus_available=$$(grep -cE 'cpu[0-9]+' /proc/stat)
-        disk_available=$$(df / | tail -1 | awk '{print $$4}')
-        warning_resources="false"
-        if (( mem_available < 4000 )) ; then
-          echo
-          echo -e "\033[1;33mWARNING!!!: Not enough memory available for Docker.\e[0m"
-          echo "At least 4GB of memory required. You have $$(numfmt --to iec $$((mem_available * one_meg)))"
-          echo
-          warning_resources="true"
-        fi
-        if (( cpus_available < 2 )); then
-          echo
-          echo -e "\033[1;33mWARNING!!!: Not enough CPUS available for Docker.\e[0m"
-          echo "At least 2 CPUs recommended. You have $${cpus_available}"
-          echo
-          warning_resources="true"
-        fi
-        if (( disk_available < one_meg * 10 )); then
-          echo
-          echo -e "\033[1;33mWARNING!!!: Not enough Disk space available for Docker.\e[0m"
-          echo "At least 10 GBs recommended. You have $$(numfmt --to iec $$((disk_available * 1024 )))"
-          echo
-          warning_resources="true"
-        fi
-        if [[ $${warning_resources} == "true" ]]; then
-          echo
-          echo -e "\033[1;33mWARNING!!!: You have not enough resources to run Airflow (see above)!\e[0m"
-          echo "Please follow the instructions to increase amount of resources available:"
-          echo "   https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#before-you-begin"
-          echo
-        fi
-        mkdir -p /sources/logs /sources/dags /sources/plugins
-        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
-        exec /entrypoint airflow version
-    # yamllint enable rule:line-length
-    environment:
-      <<: *airflow-common-env
-      _AIRFLOW_DB_UPGRADE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
-      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
-      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
-      _PIP_ADDITIONAL_REQUIREMENTS: ''
-    user: "0:0"
-    volumes:
-      - ${ETL_MOUNT_FOLDER}/airflow:/sources
-    networks:
-      - de-network
+#   af-init:
+#     <<: *airflow-common
+#     entrypoint: /bin/bash
+#     # yamllint disable rule:line-length
+#     command:
+#       - -c
+#       - |
+#         function ver() {
+#           printf "%04d%04d%04d%04d" $${1//./ }
+#         }
+#         airflow_version=$$(AIRFLOW__LOGGING__LOGGING_LEVEL=INFO && gosu airflow airflow version)
+#         airflow_version_comparable=$$(ver $${airflow_version})
+#         min_airflow_version=2.2.0
+#         min_airflow_version_comparable=$$(ver $${min_airflow_version})
+#         if (( airflow_version_comparable < min_airflow_version_comparable )); then
+#           echo
+#           echo -e "\033[1;31mERROR!!!: Too old Airflow version $${airflow_version}!\e[0m"
+#           echo "The minimum Airflow version supported: $${min_airflow_version}. Only use this or higher!"
+#           echo
+#           exit 1
+#         fi
+#         if [[ -z "${AIRFLOW_UID}" ]]; then
+#           echo
+#           echo -e "\033[1;33mWARNING!!!: AIRFLOW_UID not set!\e[0m"
+#           echo "If you are on Linux, you SHOULD follow the instructions below to set "
+#           echo "AIRFLOW_UID environment variable, otherwise files will be owned by root."
+#           echo "For other operating systems you can get rid of the warning with manually created .env file:"
+#           echo "    See: https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#setting-the-right-airflow-user"
+#           echo
+#         fi
+#         one_meg=1048576
+#         mem_available=$$(($$(getconf _PHYS_PAGES) * $$(getconf PAGE_SIZE) / one_meg))
+#         cpus_available=$$(grep -cE 'cpu[0-9]+' /proc/stat)
+#         disk_available=$$(df / | tail -1 | awk '{print $$4}')
+#         warning_resources="false"
+#         if (( mem_available < 4000 )) ; then
+#           echo
+#           echo -e "\033[1;33mWARNING!!!: Not enough memory available for Docker.\e[0m"
+#           echo "At least 4GB of memory required. You have $$(numfmt --to iec $$((mem_available * one_meg)))"
+#           echo
+#           warning_resources="true"
+#         fi
+#         if (( cpus_available < 2 )); then
+#           echo
+#           echo -e "\033[1;33mWARNING!!!: Not enough CPUS available for Docker.\e[0m"
+#           echo "At least 2 CPUs recommended. You have $${cpus_available}"
+#           echo
+#           warning_resources="true"
+#         fi
+#         if (( disk_available < one_meg * 10 )); then
+#           echo
+#           echo -e "\033[1;33mWARNING!!!: Not enough Disk space available for Docker.\e[0m"
+#           echo "At least 10 GBs recommended. You have $$(numfmt --to iec $$((disk_available * 1024 )))"
+#           echo
+#           warning_resources="true"
+#         fi
+#         if [[ $${warning_resources} == "true" ]]; then
+#           echo
+#           echo -e "\033[1;33mWARNING!!!: You have not enough resources to run Airflow (see above)!\e[0m"
+#           echo "Please follow the instructions to increase amount of resources available:"
+#           echo "   https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#before-you-begin"
+#           echo
+#         fi
+#         mkdir -p /sources/logs /sources/dags /sources/plugins
+#         chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+#         exec /entrypoint airflow version
+#     # yamllint enable rule:line-length
+#     environment:
+#       <<: *airflow-common-env
+#       _AIRFLOW_DB_UPGRADE: 'true'
+#       _AIRFLOW_WWW_USER_CREATE: 'true'
+#       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+#       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+#       _PIP_ADDITIONAL_REQUIREMENTS: ''
+#     user: "0:0"
+#     volumes:
+#       - ${ETL_MOUNT_FOLDER}/airflow:/sources
+#     networks:
+#       - de-network
 
-  af-webserver:
-    <<: *airflow-common
-    command: webserver
-    ports:
-      - 8082:8082
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8082/health"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
-    networks:
-      - de-network
+#   af-webserver:
+#     <<: *airflow-common
+#     command: webserver
+#     ports:
+#       - 8082:8082
+#     healthcheck:
+#       test: ["CMD", "curl", "--fail", "http://localhost:8082/health"]
+#       interval: 10s
+#       timeout: 10s
+#       retries: 5
+#     restart: always
+#     depends_on:
+#       <<: *airflow-common-depends-on
+#       af-init:
+#         condition: service_completed_successfully
+#     networks:
+#       - de-network
 
-  af-scheduler:
-    <<: *airflow-common
-    command: scheduler
-    healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
-    networks:
-      - de-network
+#   af-scheduler:
+#     <<: *airflow-common
+#     command: scheduler
+#     healthcheck:
+#       test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+#       interval: 10s
+#       timeout: 10s
+#       retries: 5
+#     restart: always
+#     depends_on:
+#       <<: *airflow-common-depends-on
+#       af-init:
+#         condition: service_completed_successfully
+#     networks:
+#       - de-network
 
-  af-worker:
-    <<: *airflow-common
-    command: celery worker
-    healthcheck:
-      test:
-        - "CMD-SHELL"
-        - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    environment:
-      <<: *airflow-common-env
-      # Required to handle warm shutdown of the celery workers properly
-      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
-      DUMB_INIT_SETSID: "0"
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
-    networks:
-      - de-network
+#   af-worker:
+#     <<: *airflow-common
+#     command: celery worker
+#     healthcheck:
+#       test:
+#         - "CMD-SHELL"
+#         - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+#       interval: 10s
+#       timeout: 10s
+#       retries: 5
+#     environment:
+#       <<: *airflow-common-env
+#       # Required to handle warm shutdown of the celery workers properly
+#       # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
+#       DUMB_INIT_SETSID: "0"
+#     restart: always
+#     depends_on:
+#       <<: *airflow-common-depends-on
+#       af-init:
+#         condition: service_completed_successfully
+#     networks:
+#       - de-network
 
-  af-triggerer:
-    <<: *airflow-common
-    command: triggerer
-    healthcheck:
-      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      af-init:
-        condition: service_completed_successfully
-    networks:
-      - de-network
+#   af-triggerer:
+#     <<: *airflow-common
+#     command: triggerer
+#     healthcheck:
+#       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+#       interval: 10s
+#       timeout: 10s
+#       retries: 5
+#     restart: always
+#     depends_on:
+#       <<: *airflow-common-depends-on
+#       af-init:
+#         condition: service_completed_successfully
+#     networks:
+#       - de-network
 
-  af-cli:
-    <<: *airflow-common
-    profiles:
-      - debug
-    environment:
-      <<: *airflow-common-env
-      CONNECTION_CHECK_MAX_COUNT: "0"
-    # Workaround for entrypoint issue. See: https://github.com/apache/airflow/issues/16252
-    command:
-      - bash
-      - -c
-      - airflow
-    networks:
-      - de-network
+#   af-cli:
+#     <<: *airflow-common
+#     profiles:
+#       - debug
+#     environment:
+#       <<: *airflow-common-env
+#       CONNECTION_CHECK_MAX_COUNT: "0"
+#     # Workaround for entrypoint issue. See: https://github.com/apache/airflow/issues/16252
+#     command:
+#       - bash
+#       - -c
+#       - airflow
+#     networks:
+#       - de-network
 
-  spark-master:
-    build:
-      context: ./
-      dockerfile: ./images/pyspark/Dockerfile
-    # container_name: spark-master
-    hostname: spark-master
-    ports:
-      - "8090:8090"
-      - "7077:7077"
-    networks:
-      - de-network
-    environment:
-      - "SPARK_LOCAL_IP=spark-master"
-      - "SPARK_MASTER_PORT=7077"
-      - "SPARK_MASTER_WEBUI_PORT=8090"
-    command: "/start-master.sh"
+#   spark-master:
+#     build:
+#       context: ./
+#       dockerfile: ./images/pyspark/Dockerfile
+#     # container_name: spark-master
+#     hostname: spark-master
+#     ports:
+#       - "8090:8090"
+#       - "7077:7077"
+#     networks:
+#       - de-network
+#     environment:
+#       - "SPARK_LOCAL_IP=spark-master"
+#       - "SPARK_MASTER_PORT=7077"
+#       - "SPARK_MASTER_WEBUI_PORT=8090"
+#     command: "/start-master.sh"
     
-  spark-worker:
-    build:
-      context: ./
-      dockerfile: ./images/pyspark/Dockerfile
-    depends_on:
-      - spark-master
-    ports:
-      - 8090
-    networks:
-      - de-network
-    environment:
-      - "SPARK_MASTER=spark://spark-master:7077"
-      - "SPARK_WORKER_WEBUI_PORT=8090"
-    command: "/start-worker.sh"
+#   spark-worker:
+#     build:
+#       context: ./
+#       dockerfile: ./images/pyspark/Dockerfile
+#     depends_on:
+#       - spark-master
+#     ports:
+#       - 8090
+#     networks:
+#       - de-network
+#     environment:
+#       - "SPARK_MASTER=spark://spark-master:7077"
+#       - "SPARK_WORKER_WEBUI_PORT=8090"
+#     command: "/start-worker.sh"
 
-  minio: 
-    image: minio/minio
-    ports:
-      - 9001:9001
-      - 9091:9091
-    volumes:
-      - ${ETL_MOUNT_FOLDER}/minio/:/data
-    environment:
-      - "MINIO_ROOT_USER=admin"
-      - "MINIO_ROOT_PASSWORD=admin123"
-    command: server /data --address "0.0.0.0:9001" --console-address "0.0.0.0:9091"
-    networks:
-      - de-network
+#   minio: 
+#     image: minio/minio
+#     ports:
+#       - 9001:9001
+#       - 9091:9091
+#     volumes:
+#       - ${ETL_MOUNT_FOLDER}/minio/:/data
+#     environment:
+#       - "MINIO_ROOT_USER=admin"
+#       - "MINIO_ROOT_PASSWORD=admin123"
+#     command: server /data --address "0.0.0.0:9001" --console-address "0.0.0.0:9091"
+#     networks:
+#       - de-network
 
-# ###################################
+# # ###################################
 
-  redis:
-    image: redis:6.2.1
-    restart: unless-stopped
-    environment:
-      - ALLOW_EMPTY_PASSWORD=yes
-    volumes:
-      - ${MOUNT_FOLDER}/redis_data:/data
-    ports:
-      - "6379:6379"
-    networks:
-      - de-network
+#   redis:
+#     image: redis:6.2.1
+#     restart: unless-stopped
+#     environment:
+#       - ALLOW_EMPTY_PASSWORD=yes
+#     volumes:
+#       - ${MOUNT_FOLDER}/redis_data:/data
+#     ports:
+#       - "6379:6379"
+#     networks:
+#       - de-network
 
-  converter:
-    image: eugenmayer/kontextwork-converter:production
-    restart: unless-stopped
-    volumes:
-      - ${MOUNT_FOLDER}/jod_converter_conf:/etc/app
-    ports:
-      - "8080:8080"
-    networks:
-      - de-network
+#   converter:
+#     image: eugenmayer/kontextwork-converter:production
+#     restart: unless-stopped
+#     volumes:
+#       - ${MOUNT_FOLDER}/jod_converter_conf:/etc/app
+#     ports:
+#       - "8080:8080"
+#     networks:
+#       - de-network
 
-  postgres:
-    build:
-      context: .
-      dockerfile: ./images/postgres/Dockerfile
-    restart: unless-stopped
-    volumes:
-      - ${MOUNT_FOLDER}/postgres:/var/lib/postgresql/data
-      - ${MOUNT_FOLDER}/postgres_backups:/backups
-    environment:
-      POSTGRES_DB: qos
-      POSTGRES_USER: qos
-      POSTGRES_PASSWORD: qos
-      POSTGRES_HOST: localhost
-      POSTGRES_PORT: 5432
-    ports:
-      - "5432:5432"
-    networks:
-      - de-network
+#   postgres:
+#     build:
+#       context: .
+#       dockerfile: ./images/postgres/Dockerfile
+#     restart: unless-stopped
+#     volumes:
+#       - ${MOUNT_FOLDER}/postgres:/var/lib/postgresql/data
+#       - ${MOUNT_FOLDER}/postgres_backups:/backups
+#     environment:
+#       POSTGRES_DB: qos
+#       POSTGRES_USER: qos
+#       POSTGRES_PASSWORD: qos
+#       POSTGRES_HOST: localhost
+#       POSTGRES_PORT: 5432
+#     ports:
+#       - "5432:5432"
+#     networks:
+#       - de-network
       
   # export DOCKER_BUILDKIT=1
   web:
@@ -336,78 +336,80 @@ services:
       context: ./
       dockerfile: ./images/web/Dockerfile
     # restart: unless-stopped
-    command: uwsgi --http :9090 --wsgi-file wsgi.py
+    command: tail -F anything
+    # command: uwsgi --http :9090 --wsgi-file wsgi.py
     volumes:
-      - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
-      - ${MOUNT_FOLDER}/uwsgi:/uwsgi
-      - ${MOUNT_FOLDER}/logs:/webapp/logs
-      - ${MOUNT_FOLDER}/media:/webapp/media
-      - ${MOUNT_FOLDER}/static:/webapp/static
-      - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
-      - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
-      - ./../../QoS_backend/:/webapp/
-    environment:
-      REDIS_HOST: redis
-      HOST: http://localhost:9090
-      DB_NAME: qos
-      DB_USER: qos
-      DB_PASSWORD: qos
-      DB_HOST: postgres
-      JOD_CONVERTER_URL: http://converter:8080
-      UWSGI_WORKERS: 1
-      UWSGI_THREADS: 1
-    depends_on:
-      - postgres
-      - redis
-    ports:
-      - "9090:9090"
-    networks:
-      - de-network
+      - ./../../scheduler_ml_configs:/srv/scheduler_ml_configs
+      # - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
+      # - ${MOUNT_FOLDER}/uwsgi:/uwsgi
+      # - ${MOUNT_FOLDER}/logs:/webapp/logs
+      # - ${MOUNT_FOLDER}/media:/webapp/media
+      # - ${MOUNT_FOLDER}/static:/webapp/static
+      # - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
+      # - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
+      # - ./../../QoS_backend/:/webapp/
+    # environment:
+      # REDIS_HOST: redis
+      # HOST: http://localhost:9090
+      # DB_NAME: qos
+      # DB_USER: qos
+      # DB_PASSWORD: qos
+      # DB_HOST: postgres
+      # JOD_CONVERTER_URL: http://converter:8080
+      # UWSGI_WORKERS: 1
+      # UWSGI_THREADS: 1
+    # depends_on:
+      # - postgres
+      # - redis
+    # ports:
+      # - "9090:9090"
+    # networks:
+      # - de-network
 
-  celery:
-    build:
-      context: ./
-      dockerfile: ./images/web/Dockerfile
-    command: celery -A src.celery worker -n main --max-tasks-per-child=100 --max-memory-per-child=25000 --loglevel=INFO --logfile=/webapp/logs/celery_main.log
-    volumes:
-      - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
-      - ${MOUNT_FOLDER}/uwsgi:/uwsgi
-      - ${MOUNT_FOLDER}/logs:/webapp/logs
-      - ${MOUNT_FOLDER}/media:/webapp/media
-      - ${MOUNT_FOLDER}/static:/webapp/static
-      - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
-      - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
-      - ./../../QoS_backend/:/webapp/
-    environment:
-      REDIS_HOST: redis
-      HOST: http://web:80
-      DB_NAME: qos
-      DB_USER: qos
-      DB_PASSWORD: qos
-      DB_HOST: postgres
-      JOD_CONVERTER_URL: http://converter:8080
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - de-network
+#   celery:
+#     build:
+#       context: ./
+#       dockerfile: ./images/web/Dockerfile
+#     command: celery -A src.celery worker -n main --max-tasks-per-child=100 --max-memory-per-child=25000 --loglevel=INFO --logfile=/webapp/logs/celery_main.log
+#     volumes:
+#       - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
+#       - ${MOUNT_FOLDER}/uwsgi:/uwsgi
+#       - ${MOUNT_FOLDER}/logs:/webapp/logs
+#       - ${MOUNT_FOLDER}/media:/webapp/media
+#       - ${MOUNT_FOLDER}/static:/webapp/static
+#       - ${MOUNT_FOLDER}/ipython_data:/root/.ipython/profile_default
+#       - ./local_settings_web.py:/webapp/src/conf/djconfig_local.py
+#       - ./../../QoS_backend/:/webapp/
+#     environment:
+#       REDIS_HOST: redis
+#       HOST: http://web:80
+#       DB_NAME: qos
+#       DB_USER: qos
+#       DB_PASSWORD: qos
+#       DB_HOST: postgres
+#       JOD_CONVERTER_URL: http://converter:8080
+#     depends_on:
+#       - postgres
+#       - redis
+#     networks:
+#       - de-network
 
-  flower:
-    build:
-      context: ./
-      dockerfile: ./images/web/Dockerfile
-    command: celery -A src.celery flower --conf=/webapp/flowerconfig.py --port=5555
-    volumes:
-      - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
-      - ${MOUNT_FOLDER}/uwsgi:/uwsgi
-      - ${MOUNT_FOLDER}/logs:/webapp/logs
-      - ./../../QoS_backend/:/webapp/
-    environment:
-      REDIS_HOST: redis
-    ports:
-      - "5555:5555"
-    networks:
-      - de-network
+#   flower:
+#     build:
+#       context: ./
+#       dockerfile: ./images/web/Dockerfile
+#     command: celery -A src.celery flower --conf=/webapp/flowerconfig.py --port=5555
+#     volumes:
+#       - ${MOUNT_FOLDER}/reports:/webapp/etc/reports
+#       - ${MOUNT_FOLDER}/uwsgi:/uwsgi
+#       - ${MOUNT_FOLDER}/logs:/webapp/logs
+#       - ./../../QoS_backend/:/webapp/
+#     environment:
+#       REDIS_HOST: redis
+#     ports:
+#       - "5555:5555"
+#     networks:
+#       - de-network
 
 
 networks:
