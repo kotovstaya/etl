@@ -1,25 +1,38 @@
 import logging
+import typing as tp
 
+import numpy as np
 import pandas as pd
 from dateutil import parser
-from scheduler_ml.preprocessing import readers, transformers
+from scheduler_ml.preprocessing import readers, transformers, writers
 
 
 class HistDataExtractor:
-    def __init__(self, reader_params, transformer_params, dt_from, dt_to, filename_fmt):
+    def __init__(
+            self, 
+            reader_params: tp.Dict[str, tp.Any], 
+            writer_params: tp.Dict[str, tp.Any],
+            transformer_params: tp.Dict[str, tp.Any], 
+            dt_from: str, 
+            dt_to: str, 
+            filename_fmt: str,
+            filename_to_save: str):
         self.dt_from = dt_from
         self.dt_to = dt_to
         self.filename_fmt = filename_fmt
+        self.filename_to_save = filename_to_save
         self.separated_file_for_each_shop = False
 
         self.transformer_params = transformer_params
         self.reader_params = reader_params
+        self.writer_params = writer_params
 
         if "columns" in self.transformer_params.keys():
             self.reader_params['csv_params']["index_col"] = False
             self.reader_params["csv_params"]["names"] = self.transformer_params["columns"]
 
         self.reader = readers.Minio2PandasCSVReader(**self.reader_params)
+        self.writer = writers.Array2MinioWriter(**self.writer_params)
         self.transformer = transformers.HistDataTransformer(**self.transformer_params)
 
         self._init_cached_data()
@@ -63,7 +76,7 @@ class HistDataExtractor:
         for dtt, filename in dt_and_filename_pairs:
             logging.error(f"{filename}, {dtt}")
             reader_generator = self.reader.read(filename)
-            load_errors = self.transformer.transform(
+            objects, load_errors = self.transformer.transform(
                 reader_generator, dtt, filename)
             if load_errors:
                 errors = errors.union(load_errors)
@@ -71,43 +84,5 @@ class HistDataExtractor:
             'errors': list(errors),
         }
         logging.error(res)
+        self.writer.write(objects, self.filename_to_save)
         return res
-
-
-if __name__ == "__main__":
-
-    hde = HistDataExtractor(
-        reader_params={
-            "host": "95.68.243.12",
-            "username": "mm-bav",
-            "password": "XRbTMp2N",
-            "base_path": "/Upload",
-            "csv_params": {"sep": ";", "chunksize": 10, "dtype": str}
-        },
-        transformer_params={
-            "system_code": 'pobeda',
-            "separated_file_for_each_shop": False,
-            "data_type": 'Delivery',
-            "columns": [
-                'Какой-то guid',
-                'Номер магазина id',
-                'Дата и время',
-                'Тип поставки',
-                'Id SKU',
-                'Количество товара',
-            ],
-            "shop_num_column_name": 'Номер магазина id',
-            "dt_or_dttm_column_name": 'Дата и время',
-            "receipt_code_columns":[
-                'Какой-то guid',
-                'Id SKU',
-            ],
-            "dt_or_dttm_format": '%d.%m.%Y %H:%M:%S',
-        },
-        dt_from='2022-11-14',
-        dt_to='2022-11-14',
-        filename_fmt='{data_type}_{year:04d}{month:02d}{day:02d}.csv',
-    )
-
-
-    hde.extract()

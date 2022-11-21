@@ -4,6 +4,7 @@ import typing as tp
 
 import pandas as pd
 from minio import Minio
+from pyspark.sql import SparkSession
 
 
 class BaseReader:
@@ -12,6 +13,61 @@ class BaseReader:
 
     def read(self, filename):
         raise NotImplementedError
+
+
+class Minio2ParquetReader(BaseReader):
+    def __init__(
+            self,
+            host: str,
+            access_key: str,
+            secret_key: str,
+            bucket_name: str):
+        self.spark = (
+            SparkSession
+            .builder
+            .appName("test")
+            .master("spark://spark-master:7077")
+            .config('spark.jars.packages', 'org.apache.hadoop:hadoop-aws:3.2.2')
+            .config("spark.hadoop.fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+            .config("spark.hadoop.fs.s3a.fast.upload", 'true')
+            .config("spark.sql.files.ignoreMissingFiles", "true")
+            .config("spark.delta.logStore.class", "org.apache.spark.sql.delta.storage.S3SingleDriverLogStore")
+            .config("spark.network.timeout", "10000s")
+            .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
+            .config('spark.hadoop.fs.s3a.aws.credentials.provider', 'org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider')
+            .config("spark.hadoop.fs.s3.multiobjectdelete.enable", "true")
+            .config("spark.hadoop.fs.s3a.endpoint", host)
+            .config("spark.hadoop.fs.s3a.access.key", access_key)
+            .config("spark.hadoop.fs.s3a.secret.key", secret_key)
+            .config("spark.hadoop.fs.s3a.path.style.access", 'true')
+            .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false")
+            .getOrCreate()
+        )
+
+    def read(self, path):
+        return self.spark.read.parquet(f"s3a://{path}")
+
+
+class Oracle2ParquetReader(BaseReader):
+    def __init__(self):
+        self.spark = (
+            SparkSession
+            .builder
+            .appName("test")
+            .master("spark://spark-master:7077")
+            .config("spark.sql.files.ignoreMissingFiles", "true")
+            .config("spark.network.timeout", "10000s")
+            .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
+            .config("url", "jdbc:oracle:thin:dev/dev@//postgres:5432/SID")
+            .config("dbtable", "dev")
+            .config("user", "dev")
+            .config("password", "dev")
+            .config("driver", "oracle.jdbc.driver.OracleDriver")
+            .getOrCreate()
+        )
+
+    def read(self, table_name):
+        pass
 
 
 class FTP2PandasCSVReader(BaseReader):

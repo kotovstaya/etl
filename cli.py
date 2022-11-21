@@ -1,4 +1,5 @@
 import logging
+import os
 
 import click
 from scheduler_ml.preprocessing import extractors
@@ -8,12 +9,28 @@ from scheduler_ml.preprocessing import extractors
 def messages():
   pass
 
+@click.command()
+def oracle_read():
+    readers.Oracle2ParquetReader()
+
 
 @click.command()
-@click.option('--host', type=str, default="minio:9000")
-@click.option('--access-key', type=str, default="admin")
-@click.option('--secret-key', type=str, default="admin123")
-def delivery_extractor(host, access_key, secret_key):
+@click.option('--folder', type=str)
+@click.option('--filename', type=str, )
+@click.option('--bucket', type=str, )
+def ftp_2_s3(folder: str, filename: str, bucket: str):
+    os.system(f"cd {folder} && mc cp {filename} myminio/{bucket}/{filename}")
+
+
+@click.command()
+@click.option('--host', type=str, )
+@click.option('--access-key', type=str, )
+@click.option('--secret-key', type=str, )
+@click.option('--system-code', type=str, )
+@click.option('--secret-key', type=str, )
+@click.option('--data-type', type=str, )
+@click.option('--bucket-name', type=str, )
+def delivery_extractor(host, access_key, secret_key, system_code, data_type, bucket_name):
     logging.error("DELIVERY EXTRACTOR")
 
     hde = extractors.HistDataExtractor(
@@ -21,7 +38,7 @@ def delivery_extractor(host, access_key, secret_key):
             "host": host,
             "access_key": access_key,
             "secret_key": secret_key,
-            "bucket_name": "data-science",
+            "bucket_name": bucket_name,
             "base_path": "/Upload",
             "csv_params": {
                 "sep": ";", 
@@ -30,10 +47,16 @@ def delivery_extractor(host, access_key, secret_key):
                 "index_col": False,
             }
         },
+        writer_params={
+            "host": host,
+            "access_key": access_key,
+            "secret_key": secret_key,
+            "bucket_name": bucket_name,
+        },
         transformer_params={
-            "system_code": 'pobeda',
+            "system_code": system_code,
             "separated_file_for_each_shop": False,
-            "data_type": 'delivery',
+            "data_type": data_type,
             "columns": [
                 'Какой-то guid',
                 'Номер магазина id',
@@ -53,12 +76,16 @@ def delivery_extractor(host, access_key, secret_key):
         dt_from='2022-11-14',
         dt_to='2022-11-14',
         filename_fmt='{data_type}_{year:04d}{month:02d}{day:02d}.csv',
+        filename_to_save="delivery_20221114_transformed.npy"
     )
 
     hde.extract()
 
 
+messages.add_command(ftp_2_s3)
 messages.add_command(delivery_extractor)
+messages.add_command(oracle_read)
+
 
 if __name__ == '__main__':
     messages()

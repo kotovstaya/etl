@@ -87,15 +87,18 @@ class HistDataTransformer(BaseHistDataTransformer):
             receipt_code = hash(tuple(obj))
         return receipt_code
 
-    @staticmethod
     def _create_object(
+            self,
             row: pd.Series,
+            dtt: dt.date,
             all_columns: tp.List[str],
             unused_columns: tp.List[str]) -> tp.Dict[str, tp.Any]:
         return {
             "code": row['receipt_code'],
             "dttm": row["updated_dttm"],
             "shop_id": row["shop_id"],
+            "dt": dtt,
+            "data_type": self.data_type,
             "info": row[set(all_columns) - set(unused_columns)].to_json(),
         }
 
@@ -118,7 +121,7 @@ class HistDataTransformer(BaseHistDataTransformer):
         df["updated_dttm"] = (
             df.apply(lambda obj: self._get_dttm(obj, dtt)[0], axis=1))
         df["dttm_error"] = (
-            df.apply(lambda obj: self._get_dttm(obj, dt)[1], axis=1))
+            df.apply(lambda obj: self._get_dttm(obj, dtt)[1], axis=1))
 
         # update containers with main info
 
@@ -127,7 +130,7 @@ class HistDataTransformer(BaseHistDataTransformer):
         df_for_objects = df[(~df["shop_id"].isna()) & (~df["updated_dttm"].isna())]
         if df_for_objects.shape[0]:
             objects += (df_for_objects.apply(
-                lambda row: self._create_object(row, df.columns, metainfo['unused_cols']),
+                lambda row: self._create_object(row, dtt, df.columns, metainfo['unused_cols']),
                 axis=1).values.tolist())
 
         # update sets with errors
@@ -170,8 +173,6 @@ class HistDataTransformer(BaseHistDataTransformer):
                 shops_id, objects, load_errors = self._chunk_transform(
                     df, shops_id, objects, load_errors, dtt, metainfo)
 
-                logging.error(objects[:5])
-
         except (FileNotFoundError, PermissionError) as e:
             load_errors.add(f'{e.__class__.__name__}: {str(e)}: {filename}')
-        return load_errors
+        return objects, load_errors
