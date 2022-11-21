@@ -1,4 +1,7 @@
-FROM yankovg/python3.8.2-ubuntu18.04
+# FROM yankovg/python3.8.2-ubuntu18.04
+# FROM apache/airflow:2.4.2
+
+# USER root
 
 RUN apt-get -qq update && apt-get -qq -y install \
     vim zsh dash csh tcsh posh ksh fish git libbz2-dev \
@@ -34,14 +37,17 @@ RUN /opt/conda/bin/conda install -y -c defaults -c conda-forge \
     glob2 beautifulsoup4 chardet pycrypto \
     && /opt/conda/bin/conda clean --all --yes
 
-ENV PATH="/opt/conda/bin:$PATH"
+RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc \
+    && chmod +x $HOME/minio-binaries/mc && export PATH=$PATH:$HOME/minio-binaries/
 
+RUN apt-get update && apt-get install wget iputils-ping -y
+
+ENV PATH="/opt/conda/bin:$PATH"
+ENV PATH="$PATH:$HOME/minio-binaries/"
 
 COPY ./requirements.txt /srv/requirements.txt
 
 RUN conda create --name research python==3.8 -y
-
-RUN python3.8 -m pip install jupyterlab
 
 SHELL ["conda", "run", "-n", "research", "/bin/bash", "-c"]
 

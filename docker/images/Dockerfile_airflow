@@ -1,13 +1,54 @@
 FROM apache/airflow:2.4.2
 
+ENV PYTHON_VERSION 3.8
+
 USER root
 
-RUN apt-get update
-RUN apt-get install wget iputils-ping -y
+RUN cd /home\
+    && apt update  \
+    && apt install build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev \
+    libssl-dev libsqlite3-dev libreadline-dev libffi-dev curl libbz2-dev -y \
+    && curl -O https://www.python.org/ftp/python/3.8.2/Python-3.8.2.tar.xz \
+    && tar -xf Python-3.8.2.tar.xz \
+    && cd Python-3.8.2 \
+    && ./configure --enable-optimizations \
+    && make -j 4 \
+    && make altinstall \
+    && apt install software-properties-common -y \
+    && apt-add-repository 'deb http://security.debian.org/debian-security stretch/updates main' \
+    && apt-get update \
+    && apt-get install openjdk-8-jdk -y \
+    && curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc \
+    && chmod +x $HOME/minio-binaries/mc 
 
-RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc \
-    && chmod +x $HOME/minio-binaries/mc && export PATH=$PATH:$HOME/minio-binaries/
+# conda and test dependencies
+RUN curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
+    && bash /tmp/miniconda.sh -bfp /opt/conda/ \
+    && rm -rf /tmp/miniconda.sh \
+    && /opt/conda/bin/conda install -y -c conda-canary -c defaults -c conda-forge \
+    conda conda-package-handling \
+    python=$PYTHON_VERSION pycosat requests ruamel_yaml cytoolz \
+    anaconda-client nbformat \
+    pytest pytest-cov pytest-timeout mock responses pexpect xonsh \
+    flake8 \
+    && /opt/conda/bin/conda clean --all --yes \
+    && /opt/conda/bin/pip install codecov radon \
+    && rm -rf ~root/.cache/pip \
+    && /opt/conda/bin/conda install -y -c defaults -c conda-forge \
+    conda-build patch git \
+    perl pytest-xdist pytest-catchlog pytest-mock \
+    anaconda-client \
+    filelock jinja2 conda-verify pkginfo \
+    glob2 beautifulsoup4 chardet pycrypto \
+    && /opt/conda/bin/conda clean --all --yes
 
-ENV PATH="$PATH:$HOME/minio-binaries/"
+USER airflow
+
+ENV PATH "$PATH:$HOME/minio-binaries/"
+ENV PATH "/opt/conda/bin:$PATH"
+
+COPY ./images/requirements.txt /srv/requirements.txt
+
+RUN python3.8 -m pip install -r /srv/requirements.txt
 
 # docker build -t base_airflow -f Dockerfile_airflow .

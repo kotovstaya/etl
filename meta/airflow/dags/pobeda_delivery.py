@@ -30,42 +30,49 @@ with DAG(
     ftp_2_s3 = BashOperator(
         task_id="ftp_2_s3",
         bash_command="""
-            apt-get update \
-            && apt-get install iputils-ping -y \
-            && curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc \
-            && chmod +x $HOME/minio-binaries/mc \
-            && export PATH=$PATH:$HOME/minio-binaries/ \
-            && mc alias set myminio http://minio:9001/ admin admin123 \
+            mc alias set myminio http://minio:9001/ admin admin123 \
             && cd /srv/ \
             && wget -m ftp://mm-bav:XRbTMp2N@95.68.243.12:/Upload/delivery_20221114.csv \
-            && cd /srv/95.68.243.12/Upload \
-            && mc cp delivery_20221114.csv myminio/data-science/delivery_20221114.csv
-        """,
+            && cd /srv/scheduler_ml \
+            && python setup.py develop \
+            && conda activate research && python cli.py ftp-2-s3 \
+                --folder=/srv/95.68.243.12/Upload \
+                --filename=delivery_20221114.csv \
+                --bucket=data-science""",
         dag=dag,
     )
 
     transform = BashOperator(
         task_id="transform",
-        bash_command='echo "transform"',
+        bash_command="""
+        cd /srv/scheduler_ml \
+        && python setup.py develop \
+        && conda activate research && python cli.py delivery-extractor \
+            --host=minio:9001 \
+            --access-key=admin \
+            --secret-key=admin123 \
+            --system-code=pobeda \
+            --bucket-name=data-science \
+            --data-type=delivery""",
         dag=dag,
     )
 
-    validate = BashOperator(
-        task_id="validate",
-        bash_command='echo "validate"',
-        dag=dag,
-    )
+    # validate = BashOperator(
+    #     task_id="validate",
+    #     bash_command='echo "validate"',
+    #     dag=dag,
+    # )
 
-    s3_2_db = BashOperator(
-        task_id="s3_2_db",
-        bash_command='echo "s3_2_db"',
-        dag=dag,
-    )
+    # s3_2_db = BashOperator(
+    #     task_id="s3_2_db",
+    #     bash_command='echo "s3_2_db"',
+    #     dag=dag,
+    # )
 
-    validate_db = BashOperator(
-        task_id="validate_db",
-        bash_command='echo "validate_db"',
-        dag=dag,
-    )
+    # validate_db = BashOperator(
+    #     task_id="validate_db",
+    #     bash_command='echo "validate_db"',
+    #     dag=dag,
+    # )
 
-    ftp_2_s3 >> transform >> validate >> s3_2_db >> validate_db
+    ftp_2_s3 >> transform #>> validate >> s3_2_db >> validate_db
