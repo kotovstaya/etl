@@ -35,7 +35,7 @@ with DAG(
             && wget -m ftp://mm-bav:XRbTMp2N@95.68.243.12:/Upload/delivery_20221114.csv \
             && cd /srv/scheduler_ml \
             && python setup.py develop \
-            && conda activate research && python cli.py ftp-2-s3 \
+            && python cli.py ftp-2-s3 \
                 --folder=/srv/95.68.243.12/Upload \
                 --filename=delivery_20221114.csv \
                 --bucket=data-science""",
@@ -47,13 +47,23 @@ with DAG(
         bash_command="""
         cd /srv/scheduler_ml \
         && python setup.py develop \
-        && conda activate research && python cli.py delivery-extractor \
+        && python cli.py delivery-extractor \
             --host=minio:9001 \
             --access-key=admin \
             --secret-key=admin123 \
             --system-code=pobeda \
             --bucket-name=data-science \
             --data-type=delivery""",
+        dag=dag,
+    )
+
+
+    read_from_postgres = BashOperator(
+        task_id="read_from_postgres",
+        bash_command="""
+        cd /srv/scheduler_ml \
+        && python setup.py develop \
+        && python cli.py postgres-read""",
         dag=dag,
     )
 
@@ -75,4 +85,4 @@ with DAG(
     #     dag=dag,
     # )
 
-    ftp_2_s3 >> transform #>> validate >> s3_2_db >> validate_db
+    ftp_2_s3 >> transform >> read_from_postgres #>> validate >> s3_2_db >> validate_db

@@ -18,8 +18,8 @@ RUN cd /home\
     && apt-add-repository 'deb http://security.debian.org/debian-security stretch/updates main' \
     && apt-get update \
     && apt-get install openjdk-8-jdk -y \
-    && curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/minio-binaries/mc \
-    && chmod +x $HOME/minio-binaries/mc 
+    && curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o /root/minio-binaries/mc \
+    && chmod +x /root/minio-binaries/mc 
 
 # conda and test dependencies
 RUN curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
@@ -44,11 +44,13 @@ RUN curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.s
 
 USER airflow
 
-ENV PATH "$PATH:$HOME/minio-binaries/"
-ENV PATH "/opt/conda/bin:$PATH"
+ENV PATH /root/minio-binaries/:$PATH
+ENV PATH /opt/conda/bin:$PATH
 
 COPY ./images/requirements.txt /srv/requirements.txt
 
 RUN python3.8 -m pip install -r /srv/requirements.txt
 
+RUN apt-get update && apt-get install vim wget
+RUN apt-get update && apt-get install wget iputils-ping -y
 # docker build -t base_airflow -f Dockerfile_airflow .
