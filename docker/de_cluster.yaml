@@ -29,6 +29,8 @@ x-airflow-common:
     - ${ETL_MOUNT_FOLDER}/airflow/logs:/opt/airflow/logs
     - ${ETL_MOUNT_FOLDER}/airflow/plugins:/opt/airflow/plugins
     - ./../../scheduler_ml:/srv/scheduler_ml
+    - ./../../scheduler_ml_configs:/srv/scheduler_ml_configs
+    - /var/data2/asavinkov/data:/srv/data
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -257,6 +259,8 @@ services:
       - "SPARK_MASTER_PORT=7077"
       - "SPARK_MASTER_WEBUI_PORT=8090"
     command: "/start-master.sh"
+    volumes:
+      - /var/data2/asavinkov/data:/srv/data
     
   spark-worker:
     build:
@@ -272,6 +276,8 @@ services:
       - "SPARK_MASTER=spark://spark-master:7077"
       - "SPARK_WORKER_WEBUI_PORT=8090"
     command: "/start-worker.sh"
+    volumes:
+      - /var/data2/asavinkov/data:/srv/data
 
   minio: 
     image: minio/minio
