@@ -42,6 +42,8 @@ RUN curl -L https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.s
     glob2 beautifulsoup4 chardet pycrypto \
     && /opt/conda/bin/conda clean --all --yes
 
+RUN apt-get update && apt-get install vim wget iputils-ping -y
+
 USER airflow
 
 ENV PATH /root/minio-binaries/:$PATH
@@ -51,6 +53,4 @@ COPY ./images/requirements.txt /srv/requirements.txt
 
 RUN python3.8 -m pip install -r /srv/requirements.txt
 
-RUN apt-get update && apt-get install vim wget
-RUN apt-get update && apt-get install wget iputils-ping -y
 # docker build -t base_airflow -f Dockerfile_airflow .

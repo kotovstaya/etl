@@ -1,5 +1,4 @@
-# FROM yankovg/python3.8.2-ubuntu18.04
-# FROM apache/airflow:2.4.2
+FROM yankovg/python3.8.2-ubuntu18.04
 
 # USER root
 
@@ -47,11 +46,15 @@ ENV PATH="$PATH:$HOME/minio-binaries/"
 
 COPY ./requirements.txt /srv/requirements.txt
 
-RUN conda create --name research python==3.8 -y
-
-SHELL ["conda", "run", "-n", "research", "/bin/bash", "-c"]
-
 RUN python3.8 -m pip install -r /srv/requirements.txt
 
+RUN python3.8 -m pip install jupyterlab
 
-# docker build -t ml_worker_image -f Dockerfile_ml_worker .
+RUN mkdir /srv/notebooks
+
+WORKDIR /srv/notebooks
+
+CMD ["jupyter", "lab", "--ip", "0.0.0.0", "--port", "9999", "--no-browser", "--allow-root", "--NotebookApp.token=research"]
+
+
+# docker build -t jnotebook_image -f Dockerfile_jnotebook .

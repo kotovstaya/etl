@@ -293,6 +293,15 @@ services:
     networks:
       - de-network
 
+  jnotebook:
+    image: jnotebook_image
+    ports:
+      - 9999:9999
+    networks:
+      - de-network
+    volumes:
+      - /var/data2/asavinkov/notebooks:/srv/notebooks
+
 # ###################################
 
   redis:
